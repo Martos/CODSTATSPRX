@@ -90,9 +90,10 @@ static void ogl_main_thread(uint64_t arg) {
 	readFile("/dev_hdd0/tmp/COD_STATS.bin", fileBuff, 32);
 	printf("FILE: %02X:%02X:%02X:%02X\n", fileBuff[0], fileBuff[1], fileBuff[2], fileBuff[3]);
 
+	const char message[] = {'X', 'P', ':', 0 };
 	cellMsgDialogOpen(CELL_MSGDIALOG_TYPE_PROGRESSBAR_SINGLE, "Welcome to ELITE!", my_dialog2, (void*)0x0000aaab, NULL);
-	cellMsgDialogProgressBarSetMsg(CELL_MSGDIALOG_PROGRESSBAR_INDEX_SINGLE, "XP: 89570");
-	cellMsgDialogProgressBarInc(CELL_MSGDIALOG_PROGRESSBAR_INDEX_SINGLE, 30);
+	cellMsgDialogProgressBarSetMsg(CELL_MSGDIALOG_PROGRESSBAR_INDEX_SINGLE, message);
+	cellMsgDialogProgressBarInc(CELL_MSGDIALOG_PROGRESSBAR_INDEX_SINGLE, 0);
 
 	while (1) {
 		//printf("OGL-SPRX EXEC .. \n");
@@ -107,26 +108,21 @@ static void ogl_main_thread(uint64_t arg) {
 		}
 		else {
 			uint64_t sw = 4096;
-			unsigned char tmpKillSum[4] = { 0x00 };
-			
-			if (fileBuff[3] != 0xFF) {
-				tmpKillSum[0] = p[0] + fileBuff[0];
-				tmpKillSum[1] = p[1] + fileBuff[1];
-				tmpKillSum[2] = p[2] + fileBuff[2];
-				tmpKillSum[3] = p[3] + fileBuff[3];
-			}
 
-			int var = (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
-			printf("SUM = %d\n", var);
+			int sum = 0;
+			int killProc = (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
+			int killFile = (fileBuff[0] << 24) | (fileBuff[1] << 16) | (fileBuff[2] << 8) | fileBuff[3];
+			sum = killProc + killFile;
+			printf("SUM = %d\n", killProc + killFile);
 			unsigned char res[4];
 
-			res[0] = (var >> 24) & 0xFF;
-			res[1] = (var >> 16) & 0xFF;
-			res[2] = (var >> 8) & 0xFF;
-			res[3] = var & 0xFF;
+			res[0] = (sum >> 24) & 0xFF;
+			res[1] = (sum >> 16) & 0xFF;
+			res[2] = (sum >> 8) & 0xFF;
+			res[3] = sum & 0xFF;
 			printf("%x %x %x %x\n", res[0], res[1], res[2], res[3]);
 
-			cellFsWrite(LOG, (const void *)tmpKillSum, (uint64_t)4, &sw);
+			cellFsWrite(LOG, (const void *)res, (uint64_t)4, &sw);
 
 			int cont = 0;
 			for (cont = 0; cont < 12; cont++) {
