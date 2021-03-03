@@ -16,10 +16,14 @@
 #include <sys/prx.h>
 #include <sys/random_number.h>
 
+#include <stdlib.h>
+
 #include "printf.h"
 
 #define THREAD_NAME         "ogl_main_thread"
 #define STOP_THREAD_NAME    "ogl_main_stop_thread"
+
+#define TO_HEX(i) (i <= 9 ? '0' + i : 'A' - 10 + i)
 
 static sys_ppu_thread_t ogl_main_tid = -1;
 
@@ -38,6 +42,27 @@ size_t strlenA(const char *s) {
 	const char *p = s;
 	while (*s) ++s;
 	return s - p;
+}
+
+int readFile(const char * path, unsigned char * buffer, int size)
+{
+	int fd, ret = 0;
+
+	if (cellFsOpen(path, CELL_FS_O_RDONLY, &fd, NULL, 0) == CELL_FS_SUCCEEDED)
+	{
+		uint64_t read_e = 0, pos; //, write_e
+		cellFsLseek(fd, 0, CELL_FS_SEEK_SET, &pos);
+
+		if (cellFsRead(fd, (void *)buffer, size, &read_e) == CELL_FS_SUCCEEDED)
+		{
+			ret = 1;
+		}
+
+		cellFsClose(fd);
+	}
+
+	buffer[size] = '\0';
+	return ret;
 }
 
 void my_dialog2(int button, void *userdata)
@@ -61,16 +86,20 @@ static void ogl_main_thread(uint64_t arg) {
 	printf("OGL started \n");
 	sys_timer_usleep(5 * 1000 * 1000); //5 second delay
 
+	unsigned char fileBuff[128] = { 0x00 };
+	readFile("/dev_hdd0/tmp/COD_STATS.bin", fileBuff, 32);
+	printf("FILE: %02X:%02X:%02X:%02X\n", fileBuff[0], fileBuff[1], fileBuff[2], fileBuff[3]);
+
 	cellMsgDialogOpen(CELL_MSGDIALOG_TYPE_PROGRESSBAR_SINGLE, "Welcome to ELITE!", my_dialog2, (void*)0x0000aaab, NULL);
 	cellMsgDialogProgressBarSetMsg(CELL_MSGDIALOG_PROGRESSBAR_INDEX_SINGLE, "XP: 89570");
 	cellMsgDialogProgressBarInc(CELL_MSGDIALOG_PROGRESSBAR_INDEX_SINGLE, 30);
 
 	while (1) {
 		//printf("OGL-SPRX EXEC .. \n");
-		char *p = (char *)0xFB3EBC;
-		char *scoreBuf = (char *)0xFB3EB8;
-		char sep[1] = { 0xFF };
-		printf("KILL: %02X:%02X:%02X:%02X\n", p[0], p[1], p[2], p[3]);
+		unsigned char *p = (unsigned char *)0xFB3EBC;
+		unsigned char *scoreBuf = (unsigned char *)0xFB3EB8;
+		unsigned char sep[1] = { 0xFF };
+		//printf("KILL: %02X:%02X:%02X:%02X\n", p[0], p[1], p[2], p[3]);
 		ret = cellFsOpen("/dev_hdd0/tmp/COD_STATS.bin", CELL_FS_O_RDWR | CELL_FS_O_CREAT /*| CELL_FS_O_APPEND*/, &LOG, NULL, 0);
 		if (ret == 1)
 		{
@@ -78,7 +107,26 @@ static void ogl_main_thread(uint64_t arg) {
 		}
 		else {
 			uint64_t sw = 4096;
-			cellFsWrite(LOG, (const void *)p, (uint64_t)4, &sw);
+			unsigned char tmpKillSum[4] = { 0x00 };
+			
+			if (fileBuff[3] != 0xFF) {
+				tmpKillSum[0] = p[0] + fileBuff[0];
+				tmpKillSum[1] = p[1] + fileBuff[1];
+				tmpKillSum[2] = p[2] + fileBuff[2];
+				tmpKillSum[3] = p[3] + fileBuff[3];
+			}
+
+			int var = (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
+			printf("SUM = %d\n", var);
+			unsigned char res[4];
+
+			res[0] = (var >> 24) & 0xFF;
+			res[1] = (var >> 16) & 0xFF;
+			res[2] = (var >> 8) & 0xFF;
+			res[3] = var & 0xFF;
+			printf("%x %x %x %x\n", res[0], res[1], res[2], res[3]);
+
+			cellFsWrite(LOG, (const void *)tmpKillSum, (uint64_t)4, &sw);
 
 			int cont = 0;
 			for (cont = 0; cont < 12; cont++) {
