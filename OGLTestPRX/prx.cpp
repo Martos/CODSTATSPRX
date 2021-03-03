@@ -90,7 +90,13 @@ static void ogl_main_thread(uint64_t arg) {
 	readFile("/dev_hdd0/tmp/COD_STATS.bin", fileBuff, 32);
 	printf("FILE: %02X:%02X:%02X:%02X\n", fileBuff[0], fileBuff[1], fileBuff[2], fileBuff[3]);
 
-	const char message[] = {'X', 'P', ':', 0 };
+	int xpVal = 368;
+	char str[12];
+	sprintf(str, "%d", xpVal);
+	char message[64] = {'X', 'P', ':', ' ' };
+	for (int i = 0; i < 13; i++) {
+		message[3 + i] = str[i];
+	}
 	cellMsgDialogOpen(CELL_MSGDIALOG_TYPE_PROGRESSBAR_SINGLE, "Welcome to ELITE!", my_dialog2, (void*)0x0000aaab, NULL);
 	cellMsgDialogProgressBarSetMsg(CELL_MSGDIALOG_PROGRESSBAR_INDEX_SINGLE, message);
 	cellMsgDialogProgressBarInc(CELL_MSGDIALOG_PROGRESSBAR_INDEX_SINGLE, 0);
